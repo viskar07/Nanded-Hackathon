@@ -1,0 +1,604 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(uuid())
+  clerkId      String        @unique // Clerk User ID - link to Clerk
+  email        String        @unique
+  role         UserRole      @default(Admin)
+  firstname    String
+  lastname     String
+  institutions Institution[]
+}
+
+model Institution {
+  id   String @id @default(uuid())
+  name String @unique
+
+  jsonDescription String?
+  htmlDescription String?
+
+  icon                String?
+  clerkOrganizationId String? // ID of the corresponding Clerk organization
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  isActive            Boolean  @default(true)
+
+  creatorId String
+  creator   User   @relation(fields: [creatorId], references: [id])
+
+  departments   Department[]
+  organizations Organization[]
+  students      Student[]
+  faculty       Faculty[]
+  facility   Facility[]
+  election ElectionsList[]
+}
+
+enum UserRole {
+  Admin
+  Faculty
+  Student
+}
+
+model Student {
+  id       String  @id @default(uuid())
+  name     String
+  email    String  @unique
+  password String
+  profile  String?
+
+  bloodGroup   String?
+  hobbies      Hobby[] // List of hobbies
+  achievements Achievement[] // Relation to Achievements
+  dob          DateTime?
+
+  gender                  Gender
+  role                    StudentRoleType?
+  classId                 String?
+  class                   Class?                   @relation(fields: [classId], references: [id])
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  isActive                Boolean                  @default(true)
+  studentEvent            StudentEvent[]
+  cheatingRecord          CheatingRecord[]
+  attendance              Attendance[]
+  orgChatMessage          OrgChatMessage[]
+  classChat               ClassChat[]
+  candidate               Candidate[]
+  vote                    Vote[]
+  organizationMemberships OrganizationMembership[]
+  departmentId            String
+  department              Department               @relation(fields: [departmentId], references: [id])
+  facilitySlots           FacilitySlot[]
+
+  pollResponses  PollResponse[]
+  complaint  Complaint[]
+  facilityReview FacilityReview[]
+
+  // Parent Information
+  parentName   String
+  parentMobile String
+  parentEmail  String
+
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+}
+
+// Student Enums
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum StudentRoleType {
+  MaleClassRepresentative
+  FemaleClassRepresentative
+}
+
+// students Sub Models
+model Achievement {
+  id              String  @id @default(uuid())
+  studentId       String
+  student         Student @relation(fields: [studentId], references: [id])
+  name            String
+  certificateFile String // Path to uploaded certificate file
+}
+
+model Hobby {
+  id        String  @id @default(uuid())
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id])
+  hobby     String
+}
+
+model StudentEvent {
+  id          String   @id @default(uuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id])
+  name        String
+  description String?
+  timeline    DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// --------------------------------|||--------------------------------
+model Faculty {
+  id                      String                   @id @default(uuid())
+  name                    String
+  email                   String                   @unique
+  password                String
+  profile                 String?
+  designation             FacultyDesignation
+  departmentId            String?
+  department              Department?              @relation(fields: [departmentId], references: [id])
+  hod                     Boolean?
+  classCoordinatorId      String?                  @unique // ENSURE THIS IS REALLY @unique
+  classCoordinator        Class?                   @relation("ClassCoordinator", fields: [classCoordinatorId], references: [id])
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  isActive                Boolean                  @default(true)
+  role                    FacultyRoleType?
+  exam                    Exam[]
+  cheatingRecord          CheatingRecord[]
+  election                Election[]
+  facility                Facility[]
+  complaint               Complaint[]
+  organizationMemberships OrganizationMembership[]
+  polls                   Poll[] // Faculty can create polls
+  compliantVote ComplaintVoter[]
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+}
+
+enum FacultyRoleType {
+  ADMIN
+  FINANCE
+  REGISTRAR
+  FACILITY_INCHARGE
+  COMPLAINT_MODERATOR
+  ELECTION_MANAGER
+}
+
+enum FacultyDesignation {
+  LECTURER
+  ASSISTANT_PROFESSOR
+  ASSOCIATE_PROFESSOR
+  PROFESSOR
+  STAFF // Non-teaching staff
+}
+
+model Department {
+  id   String @id @default(uuid())
+  name String @unique
+
+  description   String?
+  achievements  String?
+  toppers       String?
+  faculty       Faculty[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  organizations Organization[]
+  student       Student[]
+  institutionId String
+  institution   Institution    @relation(fields: [institutionId], references: [id])
+
+}
+
+model Class {
+  id            String       @id @default(uuid())
+  class         String
+  branch        String
+  students      Student[]
+  coordinatorId String?
+  coordinator   Faculty?     @relation("ClassCoordinator")
+  classChats    ClassChat[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  attendance    Attendance[]
+}
+
+model ClassChat {
+  id        String   @id @default(uuid())
+  message   String
+  mediaUrl  String?
+  senderId  String
+  sender    Student  @relation(fields: [senderId], references: [id])
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@index([classId, senderId])
+}
+
+// --------------------------------||||_______________________________
+
+model Organization {
+  id                      String                   @id @default(uuid())
+  background              String?
+  name                    String                   @unique
+  jsonDescription String?
+  htmlDescription String?
+  type                    OrganizationType         @default(Club)
+  achievements            String?
+  chatMessages            OrgChatMessage[]
+  departmentId            String?
+  department              Department?              @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  createdAt               DateTime                 @default(now())
+  updatedAt               DateTime                 @updatedAt
+  isActive                Boolean                  @default(true)
+  organizationMemberships OrganizationMembership[]
+  budget                  Budget[]
+  institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+}
+
+
+enum OrganizationType {
+  Department
+  Club
+  CollegeEvent
+  Mess
+}
+
+enum OrganizationRole {
+  Treasurer
+  Member
+  Head
+}
+
+
+model OrgChatMessage {
+  id             String       @id @default(uuid())
+  message        String
+  senderId       String
+  sender         Student      @relation(fields: [senderId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, senderId])
+}
+
+
+model OrganizationMembership {
+  id             String            @id @default(uuid())
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id])
+  facultyId      String?
+  faculty        Faculty?          @relation(fields: [facultyId], references: [id])
+  studentId      String?
+  student        Student?          @relation(fields: [studentId], references: [id])
+  role           OrganizationRole? @default(Member)
+  startDate      DateTime          @default(now())
+  endDate        DateTime?
+}
+// --------------------------------||||------------------------------
+model Facility {
+  id             String           @id @default(uuid())
+  name           String
+  description    String?
+  images         String?
+  slots          FacilitySlot[]
+  managerId      String?
+  manager        Faculty?         @relation(fields: [managerId], references: [id])
+  shutdown       Boolean          @default(false)
+  shutdownReason String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+   institutionId String
+  institution   Institution    @relation(fields: [institutionId], references: [id])
+  facilityReview FacilityReview[]
+}
+
+model FacilitySlot {
+  id          String     @id @default(uuid())
+  BookByfacilityId  String
+  facility    Facility   @relation(fields: [BookByfacilityId], references: [id])
+  date        DateTime   // The specific date for the slot
+  startTime   DateTime   // Start time of the slot
+  endTime     DateTime   // End time of the slot
+  maxCapacity Int        // Maximum bookings allowed for this slot
+  bookedCount Int        @default(0) // Track current number of bookings
+  status      SlotStatus @default(Available)
+  bookedById  String?
+  bookedBy    Student?   @relation(fields: [bookedById], references: [id])
+  reason      String?
+  createdAt   DateTime   @default(now())
+
+  @@unique([BookByfacilityId, date, startTime, endTime]) // Ensures no duplicate slots
+  @@index([BookByfacilityId, bookedById])
+}
+enum SlotStatus {
+  Available
+  Booked
+  
+}
+
+
+// ------------------------------||||---------------------------
+
+
+
+model Application {
+  id              String            @id @default(uuid())
+  title           String
+  description     String
+  type            String
+  sentTo          FacultyRoleType
+  status          ApplicationStatus @default(Pending)
+  rejectionReason String?
+  unread          Boolean           @default(true)
+  timeline        DateTime?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  @@index([timeline, status])
+}
+
+enum ApplicationStatus {
+  Pending
+  Approved
+  Rejected
+  Escalated
+  
+}
+
+// -------------------------------||||--------------------------------------
+
+
+model Complaint {
+  id             String          @id @default(uuid())
+  description    String
+  proof          String?
+  status         ComplaintStatus @default(UnderReview)
+  revealIdentity Boolean         @default(false)
+  votes          Int             @default(0) // Total votes
+  managerId      String?
+  manager        Faculty?        @relation(fields: [managerId], references: [id])
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  studentId      String?
+  student        Student?        @relation(fields: [studentId], references: [id])
+  voters         ComplaintVoter[]
+
+  @@index([managerId, status])
+}
+
+model ComplaintVoter {
+  id          String      @id @default(uuid())
+  complaintId String
+  complaint   Complaint   @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  facultyId   String
+  faculty     Faculty     @relation(fields: [facultyId], references: [id], onDelete: Cascade)
+  vote        VoteType?   // Faculty's vote
+  votedAt     DateTime?   // When they voted
+
+  @@unique([complaintId, facultyId]) // Ensure a faculty votes only once per complaint
+  @@index([complaintId, facultyId])
+}
+
+enum ComplaintStatus {
+  UnderReview
+  Resolved
+  Rejected
+  
+}
+
+enum VoteType {
+  REVEAL
+}
+
+
+// -------------------|||________________
+
+model Exam {
+  id          String   @id @default(uuid())
+  title       String
+  description String
+  data      String?
+  date        DateTime
+  facultyId   String?
+  faculty     Faculty? @relation(fields: [facultyId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([facultyId, date])
+}
+
+model CheatingRecord {
+  id        String   @id @default(uuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id])
+  reason    String
+  proof     String?
+  facultyId String
+  faculty   Faculty  @relation(fields: [facultyId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([facultyId, studentId])
+}
+
+
+
+// -------------------------||---------------
+model Budget {
+  id             String              @id @default(uuid())
+  title          String
+  description    String?
+  amount         Int
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id]) // Fixed field name
+  transactions   BudgetTransaction[]
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  budgetClear    Boolean
+
+}
+
+
+
+
+model BudgetTransaction {
+  id             String   @id @default(uuid())
+  budgetId       String
+  budget         Budget   @relation(fields: [budgetId], references: [id])
+  title          String
+  amount         Int
+  description    String?
+  receipt        String?
+  verified       Boolean  @default(false)
+  rejectedReason String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([budgetId, verified])
+}
+
+
+// ----------------||----------------------
+
+
+
+model ElectionsList {
+  id        String     @id @default(uuid())
+  name  String
+  elections Election[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+   institutionId String
+  institution   Institution @relation(fields: [institutionId], references: [id])
+}
+
+model Election {
+  id              String         @id @default(uuid())
+  title           String
+  description     String?
+  status          ElectionStatus @default(Hidden)
+  startTime       DateTime
+  endTime         DateTime
+  createdById     String
+  createdBy       Faculty        @relation(fields: [createdById], references: [id])
+  candidates      Candidate[]
+  votes           Vote[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  electionsListId String?
+  electionsList   ElectionsList? @relation(fields: [electionsListId], references: [id])
+
+  @@index([createdById, status])
+}
+
+enum ElectionStatus {
+  Hidden
+  Registration
+  Ongoing
+  Completed
+  
+}
+
+model Candidate {
+  id         String   @id @default(uuid())
+  studentId  String
+  student    Student  @relation(fields: [studentId], references: [id])
+  manifesto  String?
+  position   String
+  electionId String
+  election   Election @relation(fields: [electionId], references: [id])
+  votes      Vote[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  description String
+
+  @@index([electionId, studentId])
+}
+
+model Vote {
+  id          String    @id @default(uuid())
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id])
+  voterId     String
+  voter       Student   @relation(fields: [voterId], references: [id])
+  electionId  String
+  election    Election  @relation(fields: [electionId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([candidateId, voterId, electionId])
+}
+// -----------------------------------------------------
+model FacilityReview {
+  id         String   @id @default(uuid())
+  facilityId String?
+  facility   Facility? @relation(fields: [facilityId], references: [id])
+  rating     Int
+  comment    String?
+  studentId  String?
+  student    Student?  @relation(fields: [studentId], references: [id])
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([facilityId, studentId])
+}
+
+model Poll {
+  id        String         @id @default(uuid())
+  question  String
+  options   String[]
+  facultyId String
+  faculty   Faculty        @relation(fields: [facultyId], references: [id])
+  responses PollResponse[]
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  @@index([facultyId])
+}
+
+model PollResponse {
+  id             String   @id @default(uuid())
+  pollId         String
+  poll           Poll     @relation(fields: [pollId], references: [id])
+  studentId      String
+  student        Student  @relation(fields: [studentId], references: [id])
+  selectedOption String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([pollId, studentId])
+}
+
+model Attendance {
+  id        String   @id @default(uuid())
+  studentId String
+  student   Student  @relation(fields: [studentId], references: [id])
+  classId   String
+  class     Class    @relation(fields: [classId], references: [id])
+  date      DateTime
+  isPresent Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentId, classId, date])
+}
+
+
+// Imp Feature
+model Announcement {
+  id          String   @id @default(uuid())
+  message     String
+  postedBy    String
+  reactions   String?
+  pollOptions String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([postedBy])
+}
