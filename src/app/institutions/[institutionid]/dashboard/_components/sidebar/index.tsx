@@ -41,7 +41,7 @@ const menuItems = [
       {
         icon: "/lesson.png",
         label: "Classes",
-        href: "/list/lessons",
+        href: "/classes",
         visible: ["admin", "teacher"],
       },
       {
@@ -71,7 +71,7 @@ const menuItems = [
       {
         icon: "/message.png",
         label: "Class Chats",
-        href: "/messages",
+        href: "/classchat",
         visible: ["admin", "teacher", "student", "parent"],
       },
       {

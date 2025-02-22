@@ -141,6 +141,8 @@ model Faculty {
   department              Department?              @relation(fields: [departmentId], references: [id])
   hod                     Boolean?
   classCoordinatorId      String?                  @unique // ENSURE THIS IS REALLY @unique
+  surname String?
+  phone String?
   classCoordinator        Class?                   @relation("ClassCoordinator", fields: [classCoordinatorId], references: [id])
   createdAt               DateTime                 @default(now())
   updatedAt               DateTime                 @updatedAt
