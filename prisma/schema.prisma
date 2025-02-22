@@ -91,7 +91,7 @@ model Student {
   institution   Institution @relation(fields: [institutionId], references: [id])
 }
 
-// Student Enums
+
 enum Gender {
   MALE
   FEMALE
@@ -102,7 +102,7 @@ enum StudentRoleType {
   FemaleClassRepresentative
 }
 
-// students Sub Models
+
 model Achievement {
   id              String  @id @default(uuid())
   studentId       String
@@ -320,7 +320,7 @@ enum SlotStatus {
   Available
   Booked
   
-}
+}    
 
 
 // ------------------------------||||---------------------------
@@ -602,3 +602,4 @@ model Announcement {
 
   @@index([postedBy])
 }
+

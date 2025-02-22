@@ -29,20 +29,8 @@ const InstitutionForm = () => {
       type: "text",
     },
    
-    {
-      name: "htmlDescription",
-      label: "Description",
-      placeholder: "Description about..",
-      inputType: "textarea",
-      lines: 4,
-    },
-    {
-      name: "clerkOrganizationId",
-      label: "Clerk Organization ID (auto-generated)",
-      placeholder: "This will be generated automatically",
-      inputType: "input",
-      type: "text", // This will be filled automatically, can be hidden if needed
-    },
+  
+   
   ];
 
   // Function to handle Uploadcare changes
@@ -70,7 +58,7 @@ const InstitutionForm = () => {
         <Widget
           publicKey={process.env.NEXT_PUBLIC_UPLOAD_CARE_PUBLIC_KEY as string}
           onChange={handleUploadChange}
-        //   placeholder=
+     
         />
         {errors.icon && <p className="text-red-400">{errors.icon.message}</p>}
       </div>

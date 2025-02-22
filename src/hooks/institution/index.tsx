@@ -1,7 +1,7 @@
 "use client";
 
 import { onAuthenticatedUser } from "@/actions/auth";
-import { createBudget, createBudgetTransaction, createCandidate, createClassAction, createDepartmentAction, createExam, createFacility, createFaculty, createInstitution, createOrganizationAction, fetchDepartments, getInstitutionsByUserId } from "@/actions/institution";
+import { createBudget, createBudgetTransaction, createCandidate, createClassAction, createDepartmentAction, createExam, createFacility, createFaculty, createInstitution, createOrganizationAction, fetchDepartments, getFacultyWithPagination, getInstitutionsByUserId } from "@/actions/institution";
 import { BudgetCreationSchema, BudgetCreationType } from "@/components/forms/budget/create-budget/schema";
 import { BudgetTransactionCreationSchema, BudgetTransactionCreationType } from "@/components/forms/budget/create-transcation/schema";
 import { ClassSchema, ClassSchemaType } from "@/components/forms/create-class/schema";
@@ -22,7 +22,7 @@ import { ExamCreationSchema, ExamCreationType } from "@/components/forms/exam/ex
 import { upload } from "@/lib/uploadcare";
 import { Institution } from "@/types";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Facility } from "@prisma/client";
+import { Facility, Faculty } from "@prisma/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -62,7 +62,7 @@ export function useInstitutions(): UseInstitutionsResult {
     error,
   } = useQuery({
     queryKey: ["user-institutions", userId],
-    queryFn: async (): Promise<Institution[]> => {
+    queryFn: async () => {
       if (!userId) return [];
 
       const response = await getInstitutionsByUserId(userId);
@@ -91,8 +91,6 @@ export function useInstitutions(): UseInstitutionsResult {
 }
 
 
-
-
 export const useInstitutionForm = () => {
   const {
     register,
@@ -103,6 +101,7 @@ export const useInstitutionForm = () => {
     resolver: zodResolver(InstitutionSchema),
     mode: "onBlur",
   });
+
 
   const mutation = useMutation({
     mutationFn: (values: z.infer<typeof InstitutionSchema>) => createInstitution(values),
@@ -127,11 +126,6 @@ export const useInstitutionForm = () => {
   };
 };
 
-// Ensure correct export
-export default useInstitutions;
-
-
-
 
 
 
@@ -148,7 +142,6 @@ export const useCreateFaculty = ({ institutionId }: { institutionId: string }) =
     mode: "onBlur",
   });
 
-  const router = useRouter();
 
   const { mutate: createFacultyMutation, isPending: isPending } = useMutation({
     mutationFn: async (values: any) => {
@@ -173,6 +166,8 @@ export const useCreateFaculty = ({ institutionId }: { institutionId: string }) =
       },
     );
     },
+    mutationKey:['faculty'],
+  
 
     onSuccess: () => {
       toast.success("Faculty Created Successfully");
@@ -199,11 +194,11 @@ export const useCreateFaculty = ({ institutionId }: { institutionId: string }) =
 };
 
 
-
-
 interface UseDepartmentFormProps {
   institutionId: string;
 }
+
+
 
 export const useCreateDepartmentForm = ({ institutionId }: UseDepartmentFormProps) => {
   const {
@@ -253,9 +248,6 @@ export const useCreateDepartmentForm = ({ institutionId }: UseDepartmentFormProp
 
 
 
-
-
-
 export const useCreateClassForm = () => {
     const {
         register,
@@ -302,10 +294,10 @@ export const useCreateClassForm = () => {
 
 
 
-
 interface UseOrganizationFormProps {
   institutionId: string;
 }
+
 
 export const useOrganizationForm = ({ institutionId }: UseOrganizationFormProps) => {
   const {
@@ -370,9 +362,6 @@ export const useOrganizationForm = ({ institutionId }: UseOrganizationFormProps)
   };
 };
 
-
-
-
 export const useCreateFacility = ({ institutionId }: UseOrganizationFormProps) => {
   const queryClient = useQueryClient()
   const {
@@ -418,10 +407,6 @@ export const useCreateFacility = ({ institutionId }: UseOrganizationFormProps) =
   };
 };
 
-
-
-
-
 export const useCreateFacilitySlot = ({ facilityId }: {facilityId:string}) => {
   const queryClient = useQueryClient();
   const {
@@ -464,8 +449,6 @@ export const useCreateFacilitySlot = ({ facilityId }: {facilityId:string}) => {
     isPending,
   };
 };
-
-
 
 
 export const useCreateComplaint = () => {
@@ -511,7 +494,6 @@ export const useCreateComplaint = () => {
   };
 };
 
-
 export const useCreateExam = () => {
   const queryClient = useQueryClient();
   const {
@@ -554,7 +536,6 @@ export const useCreateExam = () => {
     isPending,
   };
 };
-
 
 export const useCreateCheatingRecord = () => {
   const queryClient = useQueryClient();
@@ -616,8 +597,6 @@ export const useCreateCheatingRecord = () => {
 };
 
 
-
-
 export const useCreateBudget = () => {
   const queryClient = useQueryClient();
   const {
@@ -676,9 +655,6 @@ export const useCreateBudget = () => {
     organizationsError,
   };
 };
-
-
-
 
 export const useCreateBudgetTransaction = () => {
   const queryClient = useQueryClient();
@@ -740,8 +716,6 @@ export const useCreateBudgetTransaction = () => {
   };
 };
 
-
-
 export const useCreateElectionsList = () => {
   const queryClient = useQueryClient();
   
@@ -782,8 +756,6 @@ export const useCreateElectionsList = () => {
     isPending,
   };
 };
-
-
 
 export const useCreateElection = () => {
   const queryClient = useQueryClient();
@@ -841,7 +813,6 @@ export const useCreateElection = () => {
     electionsListsError,
   };
 };
-
 
 export const useCreateCandidate = () => {
   const queryClient = useQueryClient();
@@ -912,7 +883,6 @@ export const useCreateCandidate = () => {
     isStudentsLoading,
   };
 };
-
 
 export const useCreateVote = () => {
   const queryClient = useQueryClient();
@@ -998,7 +968,6 @@ export const useCreateVote = () => {
   };
 };
 
-
 export const useCreateFacilityReview = () => {
   const {
     register,
@@ -1050,4 +1019,37 @@ export const useCreateFacilityReview = () => {
     facilities,
     isFacilitiesLoading,
   };
+};
+
+
+
+// Get Data 
+
+
+
+ export const useFacultyPagination = (initialPage: number = 1, pageSize: number = 10, institutionId: string | null = null) => {
+  const [page, setPage] = useState(initialPage);
+  const [facultyData, setFacultyData] = useState<Faculty[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchFacultyData = async (page: number) => {
+    const result = await getFacultyWithPagination(page, pageSize, institutionId);
+
+    if (result.error) {
+      setError(result.error);
+      setFacultyData([]);
+      setTotalCount(0);
+    } else {
+      setError(null);
+      setFacultyData(result.data || []);
+      setTotalCount(result.totalCount);
+    }
+  };
+
+  useEffect(() => {
+    fetchFacultyData(page);
+  }, [page]);
+
+  return { facultyData, totalCount, page, setPage, error };
 };

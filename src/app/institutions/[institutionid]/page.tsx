@@ -2,7 +2,7 @@
 
 import { Loader } from "@/components/global/loader";
 import Sidebar from "@/components/global/user-sidebar";
-import useInstitutions from "@/hooks/institution";
+import { useInstitutions } from "@/hooks/institution";
 import InstitutionCard from "../_components/institution";
 import Navbar from "../_components/navbar";
 

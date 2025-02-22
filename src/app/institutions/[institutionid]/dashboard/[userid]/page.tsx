@@ -1,4 +1,4 @@
-import StudentPage from "./_components/dashboard/student"
+import FacultyPage from "./_components/dashboard/faculty"
 
 type Props = {}
 
@@ -6,8 +6,8 @@ const DashboardPage = (props: Props) => {
   return (
     <div className="w-full h-full">
       {/* <AdminPage /> */}
-      {/* <FacultyPage /> */}
-      <StudentPage />
+      <FacultyPage />
+      {/* <StudentPage /> */}
 
     </div>
   )

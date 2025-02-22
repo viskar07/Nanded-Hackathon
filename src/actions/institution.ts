@@ -9,6 +9,7 @@ import { CandidateCreationType } from "@/components/forms/election/create-candid
 import { ExamCreationType } from "@/components/forms/exam/exam-creation/schema";
 import { client } from "@/lib/prisma";
 import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
+import { Application, ApplicationStatus, Class, Department, Faculty, FacultyRoleType, Organization, Student } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { onAuthenticatedUser } from "./auth";
 
@@ -44,11 +45,11 @@ export const createInstitution = async (data: {
   try {
     const clerk = await currentUser()
     const user = await onAuthenticatedUser()
-    // Create organization in Clerk
+  
     const organization = await clerkClient.organizations.createOrganization({
       name: data.name,
-      createdBy :clerk?.id!
-      // Add any other necessary fields for your organization
+      createdBy  :clerk?.id!
+    
     });
 
     const newInstitution = await client.institution.create({
@@ -72,29 +73,30 @@ export const createInstitution = async (data: {
     };
   }
 };
-export const getInstitution = async (institutionId: string) => {
+
+export const getInstitutionbyclerkid = async (institutionId: string) => {
   try {
     // Fetch institution from the database
-    const institution = await client.institution.findUnique({
-      where: { id: institutionId },
+    const institution = await client.institution.findFirst({
+      where: { clerkOrganizationId: institutionId }, // No need to cast to string if institutionId is already a string
     });
 
     if (!institution) {
       return { error: "Institution not found" };
     }
 
-    return { status:200, data: institution };
+    return { status: 200, data: institution };
   } catch (error) {
     console.error("Error fetching institution:", error);
     return { error: "Failed to fetch institution" };
   }
-};
+}
+
+
 export const createFaculty = async (
-  data: any,
+  data: Faculty,
 ) => {
-  console.log("Received faculty data:", data);
-  console.log("Institution ID:", data.institutionId);
-  console.log("Profile URL:", data.profile);
+
 
   try {
       const user = await currentUser();
@@ -103,6 +105,9 @@ export const createFaculty = async (
           return { message: "Unauthorized", status: 401 };  // Return error response
       }
 
+
+      const institute = await getInstitutionbyclerkid(data.institutionId)
+      
       console.log("Authenticated User:", user);
 
       const newFaculty = await client.faculty.create({
@@ -114,26 +119,18 @@ export const createFaculty = async (
               designation: data.designation,
               role: data.role || null,
               isActive: data.isActive ?? true,
-              institutionId: data.institutionId,
+              institutionId: institute.data?.id!,
           },
       });
 
       console.log("Faculty Created Successfully:", newFaculty);
 
-      // Fetch Institution Data
-      const institutionResult = await getInstitution(data.institutionId);
-      const institution = institutionResult?.data;
+    
 
-      if (!institution?.clerkOrganizationId) {
-          console.error("Institution not linked to Clerk Organization");
-          return { message: "Institution not linked to Clerk Organization", status: 400 }; // Return error response
-      }
-
-      console.log("Clerk Organization ID:", institution.clerkOrganizationId);
 
       // Invite faculty to Clerk Organization
       const celrk = await clerkClient().organizations.createOrganizationInvitation({  // Call clerkClient() as a function
-        organizationId: institution.clerkOrganizationId,
+        organizationId: data.institutionId,
         emailAddress: data.email,
         role: "org:faculty",
         inviterUserId: user.id!,
@@ -147,6 +144,8 @@ export const createFaculty = async (
       return { message: error.message || "Failed to create faculty", status: 500 }; // Return error response
   }
 };
+
+
 export async function createDepartmentAction(data: DepartmentSchemaType & { institutionId: string }) {
   try {
     const session =  auth();
@@ -217,10 +216,6 @@ export async function createOrganizationAction(data : OrganizationSchemaType & {
   }
 }
 
-
-// lib/server-actions/facility.actions.ts
-
-
 export const createFacility = async (data:any) => {
   try {
     const facility = await client.facility.create({
@@ -259,8 +254,6 @@ export const createFacilitySlot = async (data:any) => {
     throw new Error("Failed to create facility slot");
   }
 };
-
-
 
 export const createComplaint = async (data: ComplaintCreationType) => {
   try {
@@ -430,7 +423,7 @@ export const createFacilityReview = async (data: FacilityReviewCreationType) => 
         rating: data.rating,
         comment: data.comment,
         studentId: data.reviewerId, // Use reviewerId directly as student ID or faculty ID based on context
-        createdById: data.reviewerId, // Assuming createdBy can be either student or faculty
+        createclientyId: data.reviewerId, // Assuming createdBy can be either student or faculty
       },
     });
 
@@ -442,6 +435,12 @@ export const createFacilityReview = async (data: FacilityReviewCreationType) => 
     throw new Error("Failed to submit facility review");
   }
 };
+
+
+
+
+
+
 // Get Data
 export async function fetchDepartments() {
   try {
@@ -457,5 +456,351 @@ export async function fetchDepartments() {
   } catch (error) {
       console.error("Error fetching departments:", error);
       throw new Error("Failed to fetch departments.");
+  }
+}
+
+export async function getStudentsWithPagination(page: number = 1, pageSize: number = 10): Promise<{ data: Student[] | null; error: string | null; totalCount: number }> {
+  try {
+    const skip = (page - 1) * pageSize;
+
+    const [students, totalCount] = await Promise.all([
+      client.student.findMany({
+        skip,
+        take: pageSize,
+        // Add order by if needed
+      }),
+      client.student.count(),
+    ]);
+
+    if (!students) {
+      return { data: null, error: "No students found.", totalCount: 0 };
+    }
+
+    return { data: students, error: null, totalCount };
+  } catch (error: any) {
+    console.error("Error fetching students with pagination:", error);
+    return { data: null, error: `Failed to fetch students: ${error.message}`, totalCount: 0 };
+  }
+}
+
+// Get Faculty
+
+interface GetFacultyResult {
+  data: Faculty[] | null;
+  error: string | null;
+  totalCount: number;
+}
+
+// Get Classes
+interface GetClassesResult {
+  data: Class[] | null;
+  error: string | null;
+  totalCount: number;
+}
+
+export async function getClassesWithPagination(
+  page: number = 1,
+  pageSize: number = 10,
+  institutionId: string | null = null  // Optional filter by institution
+): Promise<GetClassesResult> {
+  try {
+      const skip = (page - 1) * pageSize;
+
+      // Build the 'where' clause based on optional filters
+      const whereClause = institutionId ? { institutionId } : {};  // Filter by institution if provided
+
+      const [classes, totalCount] = await Promise.all([
+          db.class.findMany({
+              skip,
+              take: pageSize,
+              where: whereClause,  // Apply the where clause
+              orderBy: {
+                  name: 'asc',  // Or any other field you want to order by
+              },
+          }),
+          db.class.count({
+              where: whereClause, // Apply the same where clause for the count
+          }),
+      ]);
+
+      if (!classes) {
+          return { data: null, error: "No classes found.", totalCount: 0 };
+      }
+
+      return { data: classes, error: null, totalCount };
+  } catch (error: any) {
+      console.error("Error fetching classes with pagination:", error);
+      return { data: null, error: `Failed to fetch classes: ${error.message}`, totalCount: 0 };
+  }
+}
+
+// Get Dipartments
+interface GetDepartmentsResult {
+  data: Department[] | null;
+  error: string | null;
+  totalCount: number;
+}
+
+export async function getDepartmentsWithPagination(
+  page: number = 1,
+  pageSize: number = 10,
+  institutionId: string | null = null  // Optional filter by institution
+): Promise<GetDepartmentsResult> {
+  try {
+      const skip = (page - 1) * pageSize;
+
+      // Build the 'where' clause based on optional filters
+      const whereClause = institutionId ? { institutionId } : {};  // Filter by institution if provided
+
+      const [departments, totalCount] = await Promise.all([
+          client.department.findMany({
+              skip,
+              take: pageSize,
+              where: whereClause,  // Apply the where clause
+              orderBy: {
+                  name: 'asc',  // Or any other field you want to order by
+              },
+               include: { // Include related fields
+                  faculty: true,
+                  student: true,
+              }
+          }),
+          client.department.count({
+              where: whereClause, // Apply the same where clause for the count
+          }),
+      ]);
+
+      if (!departments) {
+          return { data: null, error: "No departments found.", totalCount: 0 };
+      }
+
+      return { data: departments, error: null, totalCount };
+  } catch (error: any) {
+      console.error("Error fetching departments with pagination:", error);
+      return { data: null, error: `Failed to fetch departments: ${error.message}`, totalCount: 0 };
+  }
+}
+
+// get Orgnisation
+interface GetOrganizationsResult {
+  data: Organization[] | null;
+  error: string | null;
+  totalCount: number;
+}
+
+export async function getOrganizationsWithPagination(
+  page: number = 1,
+  pageSize: number = 10,
+  institutionId: string | null = null  // Optional filter by institution
+): Promise<GetOrganizationsResult> {
+  try {
+      const skip = (page - 1) * pageSize;
+
+      // Build the 'where' clause based on optional filters
+      const whereClause = institutionId ? { institutionId } : {};  // Filter by institution if provided
+
+      const [organizations, totalCount] = await Promise.all([
+          client.organization.findMany({
+              skip,
+              take: pageSize,
+              where: whereClause,  // Apply the where clause
+              orderBy: {
+                  name: 'asc',  // Or any other field you want to order by
+              },
+              include: {  // Include related fields
+                  department: true,
+                  organizationMemberships: true,
+              }
+          }),
+          client.organization.count({
+              where: whereClause, // Apply the same where clause for the count
+          }),
+      ]);
+
+      if (!organizations) {
+          return { data: null, error: "No organizations found.", totalCount: 0 };
+      }
+
+      return { data: organizations, error: null, totalCount };
+  } catch (error: any) {
+      console.error("Error fetching organizations with pagination:", error);
+      return { data: null, error: `Failed to fetch organizations: ${error.message}`, totalCount: 0 };
+  }
+}
+
+
+// Application 
+interface GetApplicationsResult {
+  data: Application[] | null;
+  error: string | null;
+  totalCount: number;
+}
+
+export async function getApplicationsWithPagination(
+  page: number = 1,
+  pageSize: number = 10,
+  institutionId: string | null = null, // Optional filter by institution
+  applicationStatus: ApplicationStatus | null = null // Optional filter by status
+): Promise<GetApplicationsResult> {
+  try {
+      const skip = (page - 1) * pageSize;
+
+      // Build the 'where' clause based on optional filters
+      const whereClause: any = {}; // Use 'any' for now, refine later with your schema
+      if (institutionId) {
+          whereClause.institutionId = institutionId;
+      }
+      if (applicationStatus) {
+          whereClause.status = applicationStatus;
+      }
+
+      const [applications, totalCount] = await Promise.all([
+          client.application.findMany({
+              skip,
+              take: pageSize,
+              where: whereClause,  // Apply the where clause
+              orderBy: {
+                  createdAt: 'desc',  // Order by creation date
+              },
+              // include: {  // Include related fields
+              //     student: true,
+              //     faculty: true,
+              // },
+          }),
+          client.application.count({
+              where: whereClause, // Apply the same where clause for the count
+          }),
+      ]);
+
+      if (!applications) {
+          return { data: null, error: "No applications found.", totalCount: 0 };
+      }
+
+      return { data: applications, error: null, totalCount };
+  } catch (error: any) {
+      console.error("Error fetching applications with pagination:", error);
+      return { data: null, error: `Failed to fetch applications: ${error.message}`, totalCount: 0 };
+  }
+}
+
+export async function updateApplicationStatus(id:string, status:ApplicationStatus){
+try{
+    const application = await client.application.update({
+      where:{
+        id:id
+      },
+      data:{
+        status:status
+      }
+    })
+    revalidatePath("/applications");
+    return {data:application, error:null}
+}catch(error:any){
+  return {data:null, error : `Failed to update Application: ${error.message}`}
+}
+}
+
+
+
+
+
+
+
+
+
+
+// Get Faculty Id
+
+
+interface GetFacultyResult {
+  data: Faculty[] | null;
+  error: string | null;
+  totalCount: number;
+}
+
+export async function getFacultyWithPagination(
+  page: number = 1,
+  pageSize: number = 10,
+  institutionId: string | null = null  // Add institutionId as a parameter
+): Promise<GetFacultyResult> {
+  try {
+    const skip = (page - 1) * pageSize;
+
+      const institution =  await getInstitutionbyclerkid(institutionId!)
+    // Build the 'where' clause based on optional filters
+    const whereClause =  institution.data?.id
+      ? { institutionId: institution.data.id }  // Filter by institution if provided
+      : {};
+
+    const [faculty, totalCount] = await Promise.all([
+      client.faculty.findMany({
+        skip,
+        take: pageSize,
+        where: whereClause,  // Apply the where clause
+        orderBy: {
+          name: 'asc',  // Or any other field you want to order by
+        },
+      }),
+      client.faculty.count({
+        where: whereClause, // Apply the same where clause for the count
+      }),
+    ]);
+
+    if (!faculty) {
+      return { data: null, error: "No faculty found.", totalCount: 0 };
+    }
+
+    return { data: faculty, error: null, totalCount: totalCount };
+  } catch (error: any) {
+    console.error("Error fetching faculty with pagination:", error);
+    return { data: null, error: `Failed to fetch faculty: ${error.message}`, totalCount: 0 };
+  }
+}
+
+export async function getAllFaculty(institutionId: string | null = null): Promise<GetFacultyResult> {
+  try {
+
+    const whereClause = institutionId
+      ? { institutionId: institutionId }  // Filter by institution if provided
+      : {};
+
+    const faculty = await client.faculty.findMany({
+      where: whereClause,
+      orderBy: {
+        name: 'asc',
+      },
+    });
+    const totalCount = await client.faculty.count({ where: whereClause });
+
+    if (!faculty) {
+      return { data: null, error: "No faculty found.", totalCount: 0 };
+    }
+
+    return { data: faculty, error: null, totalCount: totalCount };
+  } catch (error: any) {
+    console.error("Error fetching all faculty:", error);
+    return { data: null, error: `Failed to fetch faculty: ${error.message}`, totalCount: 0 };
+  }
+}
+
+export async function getFacultyRole(facultyId: string): Promise<{ data: FacultyRoleType | null; error: string | null }> {
+  try {
+    const faculty = await client.faculty.findUnique({
+      where: {
+        id: facultyId,
+      },
+      select: {
+        role: true, // Select only the 'role' field
+      },
+    });
+
+    if (!faculty) {
+      return { data: null, error: "Faculty not found." };
+    }
+
+    return { data: faculty.role || null, error: null }; // If role is null, return null
+  } catch (error: any) {
+    console.error("Error fetching faculty role:", error);
+    return { data: null, error: `Failed to fetch faculty role: ${error.message}` };
   }
 }
