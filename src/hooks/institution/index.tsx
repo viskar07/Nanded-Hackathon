@@ -1,7 +1,7 @@
 "use client";
 
 import { onAuthenticatedUser } from "@/actions/auth";
-import { createBudget, createBudgetTransaction, createCandidate, createClassAction, createDepartmentAction, createExam, createFacility, createFaculty, createInstitution, createOrganizationAction, fetchDepartments, getFacultyWithPagination, getInstitutionsByUserId } from "@/actions/institution";
+import { createBudget, createBudgetTransaction, createCandidate, createClassAction, createDepartmentAction, createExam, createFacility, createFaculty, createInstitution, createOrganizationAction, getFacultyWithPagination, getInstitutionsByUserId } from "@/actions/institution";
 import { BudgetCreationSchema, BudgetCreationType } from "@/components/forms/budget/create-budget/schema";
 import { BudgetTransactionCreationSchema, BudgetTransactionCreationType } from "@/components/forms/budget/create-transcation/schema";
 import { ClassSchema, ClassSchemaType } from "@/components/forms/create-class/schema";
@@ -22,7 +22,7 @@ import { ExamCreationSchema, ExamCreationType } from "@/components/forms/exam/ex
 import { upload } from "@/lib/uploadcare";
 import { Institution } from "@/types";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Facility, Faculty } from "@prisma/client";
+import { Facility, Faculty, OrganizationType } from "@prisma/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -212,7 +212,6 @@ export const useCreateDepartmentForm = ({ institutionId }: UseDepartmentFormProp
     mode: "onBlur",
   });
 
-  const router = useRouter();
 
   const { mutate: createDepartmentMutation, isPending: isPending } = useMutation({
     mutationFn: async (values: DepartmentSchemaType) => {
@@ -225,7 +224,6 @@ export const useCreateDepartmentForm = ({ institutionId }: UseDepartmentFormProp
     onSuccess: () => {
       toast.success("Department created successfully!");
       reset();
-      router.push("/departments"); // Adjust the redirect path
     },
     onError: (error: any) => {
       console.error("Mutation Error:", error);
@@ -299,7 +297,12 @@ interface UseOrganizationFormProps {
 }
 
 
+interface UseOrganizationFormProps {
+  institutionId: string;
+}
+
 export const useOrganizationForm = ({ institutionId }: UseOrganizationFormProps) => {
+  const router = useRouter();
   const {
       register,
       handleSubmit,
@@ -307,27 +310,22 @@ export const useOrganizationForm = ({ institutionId }: UseOrganizationFormProps)
       reset,
       control,
       watch,
+      trigger,
+      setValue
   } = useForm<OrganizationSchemaType>({
       resolver: zodResolver(OrganizationSchema),
       mode: "onBlur",
+      defaultValues: {
+          type: OrganizationType.Club, // Set default value for the type
+      },
   });
-
-  const router = useRouter();
-
-  const { data:departments = [] , isLoading: isLoadingDepartments, error: fetchError } = useQuery({
-    queryKey:['departmentsList'], // Unique query key
-    queryFn:fetchDepartments // Fetching function
-  }
-  );
-
-  console.log("Department",departments);
- 
 
   const organizationType = watch('type'); // Watch for changes in organization type
 
-  const { mutate: createOrganizationMutation, isPending: isPending } = useMutation({
+  const createOrganizationMutation = useMutation({
       mutationFn: async (values: OrganizationSchemaType) => {
-          return await createOrganizationAction({ ...values, institutionId }); // Pass institutionId to server action
+          // Ensure institutionId is correctly passed to the server action
+          return await createOrganizationAction({ ...values, institutionId });
       },
       onSuccess: () => {
           toast.success("Organization created successfully!");
@@ -341,26 +339,30 @@ export const useOrganizationForm = ({ institutionId }: UseOrganizationFormProps)
   });
 
   const onSubmit = handleSubmit(async (values) => {
-    // Ensure departmentId is set correctly or null if not selected
-    const organizationData = {
-        ...values,
-        departmentId: values.departmentId || undefined, // Handle as needed
-    };
-    createOrganizationMutation(organizationData);
-});
+      // Ensure departmentId is set correctly or null if not selected
+      const organizationData = {
+          ...values,
+          departmentId: values.departmentId || undefined, // Handle as needed
+      };
+      createOrganizationMutation.mutate(organizationData);
+  });
 
   return {
       register,
       errors,
       onSubmit,
-      isPending,
+      isPending: createOrganizationMutation.isPending,
       control,
-      departments,
-      isLoadingDepartments,
-      fetchError,
-      organizationType, // Expose organization type for conditional rendering
+      organizationType, 
+      trigger,
+      setValue// Expose organization type for conditional rendering
   };
 };
+
+
+
+
+
 
 export const useCreateFacility = ({ institutionId }: UseOrganizationFormProps) => {
   const queryClient = useQueryClient()

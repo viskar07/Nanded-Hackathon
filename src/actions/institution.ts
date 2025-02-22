@@ -3,8 +3,6 @@
 
 import { ClassSchemaType } from "@/components/forms/create-class/schema";
 import { ComplaintCreationType } from "@/components/forms/create-complaint/schema";
-import { DepartmentSchema, DepartmentSchemaType } from "@/components/forms/create-department/schema";
-import { OrganizationSchemaType } from "@/components/forms/create-orgnisation/schema";
 import { CandidateCreationType } from "@/components/forms/election/create-candidate/schema";
 import { ExamCreationType } from "@/components/forms/exam/exam-creation/schema";
 import { client } from "@/lib/prisma";
@@ -92,7 +90,6 @@ export const getInstitutionbyclerkid = async (institutionId: string) => {
   }
 }
 
-
 export const createFaculty = async (
   data: Faculty,
 ) => {
@@ -145,8 +142,7 @@ export const createFaculty = async (
   }
 };
 
-
-export async function createDepartmentAction(data: DepartmentSchemaType & { institutionId: string }) {
+export async function createDepartmentAction( data:any,institutionId: string) {
   try {
     const session =  auth();
 
@@ -154,12 +150,13 @@ export async function createDepartmentAction(data: DepartmentSchemaType & { inst
       throw new Error("Unauthorized");
     }
 
-    const validatedData = DepartmentSchema.parse(data);
+    // const validatedData = DepartmentSchema.parse(data);
 
+    const institute = await getInstitutionbyclerkid(institutionId)
     const department = await client.department.create({
       data: {
-        ...validatedData,
-        institutionId: data.institutionId, // Make sure to pass institutionId
+        ...data,
+        institutionId: institute.data?.id, // Make sure to pass institutionId
       },
     });
 
@@ -170,6 +167,7 @@ export async function createDepartmentAction(data: DepartmentSchemaType & { inst
     throw new Error(error.message || "Failed to create department.");
   }
 }
+
 export async function createClassAction(data: ClassSchemaType) {
     try {
         const session =  auth();
@@ -190,7 +188,7 @@ export async function createClassAction(data: ClassSchemaType) {
     }
 }
 
-export async function createOrganizationAction(data : OrganizationSchemaType & { institutionId:string }) {
+export async function createOrganizationAction(data :any, institutionId:string ) {
   try{
       const session =  auth();
 
@@ -199,11 +197,11 @@ export async function createOrganizationAction(data : OrganizationSchemaType & {
       }
 
       // const validatedData = OrganizationSchema.parse(data);
-
+      const institute = await getInstitutionbyclerkid(institutionId)
       const organization = await client.organization.create({
           data:{
               ...data,
-              institutionId:data.institutionId // Ensure institutionId is set
+              institutionId:institute.data?.id! // Ensure institutionId is set
           }
       });
 
@@ -444,18 +442,18 @@ export const createFacilityReview = async (data: FacilityReviewCreationType) => 
 // Get Data
 export async function fetchDepartments() {
   try {
-      console.log("Fetching departments from the database...");
-      const departments = await client.department.findMany({
-          select: {
-              id: true,
-              name: true,
-          },
-      });
-      console.log("Fetched departments:", departments);
-      return departments;
+    console.log("Fetching departments from the database...");
+    const departments = await client.department.findMany({
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+    console.log("Fetched departments:", departments);
+    return departments;
   } catch (error) {
-      console.error("Error fetching departments:", error);
-      throw new Error("Failed to fetch departments.");
+    console.error("Error fetching departments:", error);
+    throw new Error("Failed to fetch departments. Please check your database connection and try again.");
   }
 }
 
